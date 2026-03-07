@@ -3,7 +3,7 @@ import { config } from "../config.js";
 
 const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
-const MODEL = "gemini-2.5-flash-preview-05-20";
+const MODEL = "gemini-2.5-flash";
 
 export async function generateText(
   prompt: string,
