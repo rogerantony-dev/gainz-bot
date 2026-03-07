@@ -87,12 +87,13 @@ interface PendingGroup {
 }
 
 const pendingGroups = new Map<string, PendingGroup>();
-const MEDIA_GROUP_WAIT_MS = 1500; // wait 1.5s for all photos to arrive
+const MEDIA_GROUP_WAIT_MS = 3000; // wait 3s for all photos to arrive (download time adds delay)
 
 function processPendingGroup(mediaGroupId: string, ctx: BotContext): void {
   const group = pendingGroups.get(mediaGroupId);
-  if (!group) return;
+  if (!group || group.photos.length === 0) return;
   pendingGroups.delete(mediaGroupId);
+  console.log(`Processing media group ${mediaGroupId}: ${group.photos.length} photos`);
 
   // Process the group asynchronously
   handleMediaGroup(ctx, group.photos).catch((err) => {
@@ -215,42 +216,52 @@ composer.on("message:photo", async (ctx) => {
     return;
   }
 
+  const mediaGroupId = ctx.message?.media_group_id;
+
+  if (mediaGroupId) {
+    // Part of a media group -- register it IMMEDIATELY before any async work
+    // so the timer doesn't fire before all updates are registered
+    const existing = pendingGroups.get(mediaGroupId);
+    if (!existing) {
+      // First photo in this group -- set up the entry with timer
+      const timer = setTimeout(
+        () => processPendingGroup(mediaGroupId, ctx),
+        MEDIA_GROUP_WAIT_MS,
+      );
+      pendingGroups.set(mediaGroupId, {
+        photos: [],
+        chatId: ctx.chat.id,
+        timer,
+      });
+      await ctx.reply("Got it, processing your photos...");
+    } else {
+      // Reset the timer for each new photo
+      clearTimeout(existing.timer);
+      existing.timer = setTimeout(
+        () => processPendingGroup(mediaGroupId, ctx),
+        MEDIA_GROUP_WAIT_MS,
+      );
+    }
+
+    // Now download (this can be slow) -- group entry already exists
+    const photo = await downloadPhoto(ctx);
+    if (photo) {
+      const group = pendingGroups.get(mediaGroupId);
+      if (group) {
+        group.photos.push(photo);
+        console.log(`Media group ${mediaGroupId}: buffered photo ${group.photos.length}`);
+      }
+    }
+    return;
+  }
+
+  // Single photo -- process immediately
   const photo = await downloadPhoto(ctx);
   if (!photo) {
     await ctx.reply("Couldn't download the photo. Try again.");
     return;
   }
 
-  const mediaGroupId = ctx.message?.media_group_id;
-
-  if (mediaGroupId) {
-    // Part of a media group -- buffer it
-    const existing = pendingGroups.get(mediaGroupId);
-    if (existing) {
-      existing.photos.push(photo);
-      // Reset the timer -- wait for more photos
-      clearTimeout(existing.timer);
-      existing.timer = setTimeout(
-        () => processPendingGroup(mediaGroupId, ctx),
-        MEDIA_GROUP_WAIT_MS,
-      );
-    } else {
-      // First photo in this group
-      const timer = setTimeout(
-        () => processPendingGroup(mediaGroupId, ctx),
-        MEDIA_GROUP_WAIT_MS,
-      );
-      pendingGroups.set(mediaGroupId, {
-        photos: [photo],
-        chatId: ctx.chat.id,
-        timer,
-      });
-      await ctx.reply("Got it, processing your photos...");
-    }
-    return;
-  }
-
-  // Single photo -- process immediately
   await ctx.reply("Analyzing...");
 
   const imageType = await classifyImage(photo.buffer, photo.mimeType);

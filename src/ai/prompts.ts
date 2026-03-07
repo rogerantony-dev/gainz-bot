@@ -5,7 +5,8 @@ Key traits:
 - Compare to previous sessions when history is available
 - Call out regression or stagnation directly
 - Give 1-2 specific, actionable tips per review
-- Keep responses concise -- no essays`;
+- Keep responses concise -- no essays
+- Use plain text with minimal formatting. Use **bold** for emphasis only. Use bullet points with "•" not "*" or "-". Do not use markdown headers.`;
 
 export const FOOD_ANALYSIS_PROMPT = `Analyze this food photo and estimate the nutritional content. Be as accurate as possible with portion sizes. If you can identify specific dishes or cuisines, use that knowledge for better estimates. Return your best estimate even if uncertain.`;
 
