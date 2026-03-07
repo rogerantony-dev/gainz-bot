@@ -1,6 +1,7 @@
 import { BotContext } from "../context.js";
-import { analyzeMultipleImages, generateText } from "../../ai/client.js";
+import { analyzeMultipleImages } from "../../ai/client.js";
 import { COACH_SYSTEM_PROMPT } from "../../ai/prompts.js";
+import { mdToTelegramHtml } from "../../utils/telegram-format.js";
 import {
   logWorkout,
   getProfile,
@@ -83,5 +84,7 @@ export async function handleWorkoutScreenshots(
   logWorkout(today, analysis, savedPaths.join(","), analysis);
 
   const photoCount = photos.length > 1 ? ` (${photos.length} screenshots)` : "";
-  await ctx.reply(`💪 Workout Review${photoCount}\n\n${analysis}`);
+  await ctx.reply(mdToTelegramHtml(`💪 Workout Review${photoCount}\n\n${analysis}`), {
+    parse_mode: "HTML",
+  });
 }

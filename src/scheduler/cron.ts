@@ -14,6 +14,7 @@ import {
   logPhysiqueCheckin,
 } from "../db/queries.js";
 import { getTodayDate, getDateNDaysAgo } from "../utils/date.js";
+import { mdToTelegramHtml } from "../utils/telegram-format.js";
 import fs from "node:fs";
 
 export function startScheduler(api: Api): void {
@@ -86,7 +87,9 @@ async function sendWeeklyReview(api: Api): Promise<void> {
     COACH_SYSTEM_PROMPT,
   );
 
-  await api.sendMessage(config.ownerChatId, `📅 Weekly Review\n\n${review}`);
+  await api.sendMessage(config.ownerChatId, mdToTelegramHtml(`📅 Weekly Review\n\n${review}`), {
+    parse_mode: "HTML",
+  });
 }
 
 async function sendPhysiquePrompt(api: Api): Promise<void> {

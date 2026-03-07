@@ -5,6 +5,7 @@ import { handleManualMeal } from "./food-manual.js";
 import { looksLikeStatsUpdate, handleStatsUpdate } from "./stats.js";
 import { generateText } from "../../ai/client.js";
 import { COACH_SYSTEM_PROMPT } from "../../ai/prompts.js";
+import { mdToTelegramHtml } from "../../utils/telegram-format.js";
 
 const composer = new Composer<BotContext>();
 
@@ -34,7 +35,7 @@ composer.on("message:text", async (ctx) => {
     `User asks: ${text}`;
 
   const response = await generateText(context, COACH_SYSTEM_PROMPT);
-  await ctx.reply(response);
+  await ctx.reply(mdToTelegramHtml(response), { parse_mode: "HTML" });
 });
 
 // Handle unsupported message types
