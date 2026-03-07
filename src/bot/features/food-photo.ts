@@ -15,15 +15,21 @@ import {
   upsertFoodMemory,
 } from "../../db/queries.js";
 import { getTodayDate, getNowISO } from "../../utils/date.js";
-import { handleWorkoutScreenshot } from "./workout.js";
+import { handleWorkoutScreenshots } from "./workout.js";
 import fs from "node:fs";
 import path from "node:path";
 
 const composer = new Composer<BotContext>();
 
-async function downloadPhoto(
+export interface DownloadedPhoto {
+  buffer: Buffer;
+  mimeType: string;
+  filePath: string;
+}
+
+export async function downloadPhoto(
   ctx: BotContext,
-): Promise<{ buffer: Buffer; mimeType: string; filePath: string } | null> {
+): Promise<DownloadedPhoto | null> {
   const photo = ctx.message?.photo;
   if (!photo || photo.length === 0) return null;
 
@@ -42,14 +48,14 @@ async function downloadPhoto(
   // Save to data/photos/
   const photoDir = path.resolve("data", "photos", "meals");
   fs.mkdirSync(photoDir, { recursive: true });
-  const fileName = `${Date.now()}${ext}`;
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}${ext}`;
   const savePath = path.join(photoDir, fileName);
   fs.writeFileSync(savePath, buffer);
 
   return { buffer, mimeType, filePath: savePath };
 }
 
-function formatDailySummary(
+export function formatDailySummary(
   totals: ReturnType<typeof getDailyTotals>,
   profile: ReturnType<typeof getProfile>,
 ): string {
@@ -70,45 +76,74 @@ function formatDailySummary(
   );
 }
 
-composer.on("message:photo", async (ctx) => {
+// ── Media group batching ──
+// Telegram sends each photo in a media group as a separate update.
+// We collect them by media_group_id and process once all arrive.
+
+interface PendingGroup {
+  photos: DownloadedPhoto[];
+  chatId: number;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const pendingGroups = new Map<string, PendingGroup>();
+const MEDIA_GROUP_WAIT_MS = 1500; // wait 1.5s for all photos to arrive
+
+function processPendingGroup(mediaGroupId: string, ctx: BotContext): void {
+  const group = pendingGroups.get(mediaGroupId);
+  if (!group) return;
+  pendingGroups.delete(mediaGroupId);
+
+  // Process the group asynchronously
+  handleMediaGroup(ctx, group.photos).catch((err) => {
+    console.error("Media group processing error:", err);
+    ctx.api
+      .sendMessage(group.chatId, "Something went wrong processing your photos. Try again.")
+      .catch(() => {});
+  });
+}
+
+async function handleMediaGroup(
+  ctx: BotContext,
+  photos: DownloadedPhoto[],
+): Promise<void> {
   const profile = getProfile();
-  if (!profile?.onboarded_at) {
-    await ctx.reply("Please complete setup first. Type /start");
-    return;
-  }
+  if (!profile?.onboarded_at) return;
 
-  const photo = await downloadPhoto(ctx);
-  if (!photo) {
-    await ctx.reply("Couldn't download the photo. Try again.");
-    return;
-  }
-
-  await ctx.reply("Analyzing...");
-
-  // Classify the image
-  const imageType = await classifyImage(photo.buffer, photo.mimeType);
+  // Classify the first image to determine the type
+  const imageType = await classifyImage(photos[0].buffer, photos[0].mimeType);
 
   if (imageType === "workout") {
-    await handleWorkoutScreenshot(ctx, photo.buffer, photo.mimeType, photo.filePath);
+    // All photos in the group are workout screenshots -- process as one workout
+    await handleWorkoutScreenshots(ctx, photos);
     return;
   }
 
-  if (imageType === "unknown") {
-    await ctx.reply(
-      "I'm not sure what this is. Send me a food photo for calorie tracking, or a workout screenshot for training feedback.",
-    );
+  if (imageType === "food") {
+    // Multiple food photos -- process each individually
+    for (const photo of photos) {
+      await handleSingleFoodPhoto(ctx, photo, profile);
+    }
     return;
   }
 
   if (imageType === "physique") {
     await ctx.reply(
-      "Looks like a physique photo! I'll save this for your monthly check-in. " +
-        "If you want a full comparison, wait for the monthly prompt or send front, side, and back photos.",
+      "Looks like physique photos! I'll save these for your monthly check-in.",
     );
     return;
   }
 
-  // It's food -- analyze it
+  await ctx.reply(
+    "I'm not sure what these are. Send me food photos for calorie tracking, or workout screenshots for training feedback.",
+  );
+}
+
+async function handleSingleFoodPhoto(
+  ctx: BotContext,
+  photo: DownloadedPhoto,
+  profile: NonNullable<ReturnType<typeof getProfile>>,
+): Promise<void> {
   const analysis = await analyzeImageStructured<FoodAnalysis>(
     photo.buffer,
     photo.mimeType,
@@ -117,7 +152,6 @@ composer.on("message:photo", async (ctx) => {
     COACH_SYSTEM_PROMPT,
   );
 
-  // Check food memory
   const memory = findFoodMemory(analysis.meal_name);
   const today = getTodayDate(profile.timezone);
 
@@ -135,7 +169,6 @@ composer.on("message:photo", async (ctx) => {
     usedMemory = true;
   }
 
-  // Log the meal
   const memoryId = upsertFoodMemory(
     finalAnalysis.meal_name,
     finalAnalysis.calories,
@@ -173,7 +206,75 @@ composer.on("message:photo", async (ctx) => {
   response += formatDailySummary(totals, profile);
 
   await ctx.reply(response);
+}
+
+composer.on("message:photo", async (ctx) => {
+  const profile = getProfile();
+  if (!profile?.onboarded_at) {
+    await ctx.reply("Please complete setup first. Type /start");
+    return;
+  }
+
+  const photo = await downloadPhoto(ctx);
+  if (!photo) {
+    await ctx.reply("Couldn't download the photo. Try again.");
+    return;
+  }
+
+  const mediaGroupId = ctx.message?.media_group_id;
+
+  if (mediaGroupId) {
+    // Part of a media group -- buffer it
+    const existing = pendingGroups.get(mediaGroupId);
+    if (existing) {
+      existing.photos.push(photo);
+      // Reset the timer -- wait for more photos
+      clearTimeout(existing.timer);
+      existing.timer = setTimeout(
+        () => processPendingGroup(mediaGroupId, ctx),
+        MEDIA_GROUP_WAIT_MS,
+      );
+    } else {
+      // First photo in this group
+      const timer = setTimeout(
+        () => processPendingGroup(mediaGroupId, ctx),
+        MEDIA_GROUP_WAIT_MS,
+      );
+      pendingGroups.set(mediaGroupId, {
+        photos: [photo],
+        chatId: ctx.chat.id,
+        timer,
+      });
+      await ctx.reply("Got it, processing your photos...");
+    }
+    return;
+  }
+
+  // Single photo -- process immediately
+  await ctx.reply("Analyzing...");
+
+  const imageType = await classifyImage(photo.buffer, photo.mimeType);
+
+  if (imageType === "workout") {
+    await handleWorkoutScreenshots(ctx, [photo]);
+    return;
+  }
+
+  if (imageType === "unknown") {
+    await ctx.reply(
+      "I'm not sure what this is. Send me a food photo for calorie tracking, or a workout screenshot for training feedback.",
+    );
+    return;
+  }
+
+  if (imageType === "physique") {
+    await ctx.reply(
+      "Looks like a physique photo! I'll save this for your monthly check-in.",
+    );
+    return;
+  }
+
+  await handleSingleFoodPhoto(ctx, photo, profile);
 });
 
-export { formatDailySummary };
 export default composer;
