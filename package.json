@@ -1,0 +1,28 @@
+{
+  "name": "gainz-bot",
+  "version": "1.0.0",
+  "description": "Personal AI fitness coach on Telegram",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.44.0",
+    "@grammyjs/conversations": "^2.1.1",
+    "dotenv": "^16.4.0",
+    "grammy": "^1.35.0",
+    "node-cron": "^3.0.0",
+    "sql.js": "^1.11.0",
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
