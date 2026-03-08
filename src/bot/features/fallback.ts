@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 import { BotContext } from "../context.js";
 import { getProfile } from "../../db/queries.js";
 import { handleManualMeal } from "./food-manual.js";
+import { handleMealEdit } from "./food-edit.js";
 import { looksLikeStatsUpdate, handleStatsUpdate } from "./stats.js";
 import { generateText } from "../../ai/client.js";
 import { COACH_SYSTEM_PROMPT } from "../../ai/prompts.js";
@@ -15,7 +16,14 @@ composer.on("message:text", async (ctx) => {
 
   const text = ctx.message.text;
 
-  // Skip commands (already handled)
+  // Skip commands (already handled, except /cancel which edit mode handles)
+  if (text.startsWith("/") && text.toLowerCase() !== "/cancel") return;
+
+  // If in edit mode, handle the correction
+  const editHandled = await handleMealEdit(ctx, text);
+  if (editHandled) return;
+
+  // Skip remaining commands
   if (text.startsWith("/")) return;
 
   // Try manual meal logging

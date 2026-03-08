@@ -153,7 +153,7 @@ composer.command("help", async (ctx) => {
       "📸 Send a food photo → calorie estimate + tracking\n" +
       "💪 Send a workout screenshot → coaching feedback\n" +
       '📝 Type "lunch 600cal" → manual calorie log\n' +
-      '✏️ Type "actually lunch was 400cal" → correct a log\n' +
+      "✏️ Tap Edit button on any logged meal → fix it\n" +
       '⚖️ Type "my weight is 82kg" → update stats\n\n' +
       "Commands:\n" +
       "/today - daily meal summary\n" +

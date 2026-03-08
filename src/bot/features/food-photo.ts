@@ -16,6 +16,7 @@ import {
 } from "../../db/queries.js";
 import { getTodayDate, getNowISO } from "../../utils/date.js";
 import { handleWorkoutScreenshots } from "./workout.js";
+import { mealEditKeyboard } from "./food-edit.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -178,7 +179,7 @@ async function handleSingleFoodPhoto(
     finalAnalysis.carbs,
   );
 
-  logMeal({
+  const mealId = logMeal({
     logged_at: getNowISO(),
     date: today,
     description: finalAnalysis.meal_name,
@@ -206,7 +207,7 @@ async function handleSingleFoodPhoto(
 
   response += formatDailySummary(totals, profile);
 
-  await ctx.reply(response);
+  await ctx.reply(response, { reply_markup: mealEditKeyboard(mealId) });
 }
 
 composer.on("message:photo", async (ctx) => {

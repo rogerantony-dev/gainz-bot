@@ -5,6 +5,7 @@ import { authMiddleware } from "./middlewares/auth.js";
 import onboarding from "./features/onboarding.js";
 import foodPhoto from "./features/food-photo.js";
 import foodManual from "./features/food-manual.js";
+import foodEdit from "./features/food-edit.js";
 import query from "./features/query.js";
 import fallback from "./features/fallback.js";
 
@@ -24,6 +25,7 @@ export function createBot(): Bot<BotContext> {
   // Feature handlers (order matters -- more specific first)
   bot.use(onboarding);
   bot.use(query);       // /today, /targets, /meals, /forget, /week, /help
+  bot.use(foodEdit);    // edit/delete callback queries + edit mode
   bot.use(foodPhoto);   // photo messages (classifies and routes)
   bot.use(foodManual);  // (handled via fallback)
   bot.use(fallback);    // text messages, unsupported types

@@ -53,6 +53,14 @@ export const ManualMealSchema = z.object({
   carbs: z.number().nullable().describe("Grams of carbs, null if not specified"),
 });
 
+export const MealEditSchema = z.object({
+  description: z.string().nullable().describe("New meal name/description, null if not changed"),
+  calories: z.number().nullable().describe("New calories, null if not changed"),
+  protein: z.number().nullable().describe("New protein grams, null if not changed"),
+  fat: z.number().nullable().describe("New fat grams, null if not changed"),
+  carbs: z.number().nullable().describe("New carbs grams, null if not changed"),
+});
+
 // Convert to JSON schemas for Gemini
 export const imageClassificationJsonSchema = zodToJsonSchema(
   ImageClassificationSchema,
@@ -63,6 +71,7 @@ export const workoutExtractionJsonSchema = zodToJsonSchema(
 );
 export const statsUpdateJsonSchema = zodToJsonSchema(StatsUpdateSchema);
 export const manualMealJsonSchema = zodToJsonSchema(ManualMealSchema);
+export const mealEditJsonSchema = zodToJsonSchema(MealEditSchema);
 
 // Inferred types
 export type ImageClassification = z.infer<typeof ImageClassificationSchema>;
@@ -70,3 +79,4 @@ export type FoodAnalysis = z.infer<typeof FoodAnalysisSchema>;
 export type WorkoutExtraction = z.infer<typeof WorkoutExtractionSchema>;
 export type StatsUpdate = z.infer<typeof StatsUpdateSchema>;
 export type ManualMeal = z.infer<typeof ManualMealSchema>;
+export type MealEdit = z.infer<typeof MealEditSchema>;

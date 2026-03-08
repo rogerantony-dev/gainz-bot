@@ -70,3 +70,14 @@ export const MANUAL_MEAL_PROMPT = `Parse this meal logging message. Extract the 
 - "chicken rice 500cal 40p 15f 50c" -> description: "chicken rice", calories: 500, protein: 40, fat: 15, carbs: 50
 - "I had a protein shake about 200 calories with 30g protein" -> description: "protein shake", calories: 200, protein: 30
 If macros aren't specified, set them to null.`;
+
+export const MEAL_EDIT_PROMPT = `The user is correcting a previously logged meal. Parse their correction message.
+The original meal was: "{original}"
+
+Extract what they want to change. They might change the name, calories, macros, or any combination.
+Examples:
+- "it was actually chicken not beef" -> description: "chicken", rest null
+- "450cal" -> calories: 450, rest null
+- "chicken rice 500cal 35p 12f 55c" -> all fields set
+- "protein was 40g" -> protein: 40, rest null
+Only set fields the user explicitly mentions. Set unmentioned fields to null.`;

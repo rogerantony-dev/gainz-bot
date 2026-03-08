@@ -13,6 +13,7 @@ import {
 } from "../../db/queries.js";
 import { getTodayDate, getNowISO } from "../../utils/date.js";
 import { formatDailySummary } from "./food-photo.js";
+import { mealEditKeyboard } from "./food-edit.js";
 
 const CALORIE_PATTERN = /(\d+)\s*(?:cal|kcal|calories)/i;
 const CORRECTION_PATTERN =
@@ -53,7 +54,7 @@ export async function handleManualMeal(
     parsed.carbs ?? undefined,
   );
 
-  logMeal({
+  const mealId = logMeal({
     logged_at: getNowISO(),
     date: today,
     description: parsed.description,
@@ -80,7 +81,7 @@ export async function handleManualMeal(
   }
 
   response += formatDailySummary(totals, profile);
-  await ctx.reply(response);
+  await ctx.reply(response, { reply_markup: mealEditKeyboard(mealId) });
   return true;
 }
 

@@ -5,6 +5,7 @@ export interface SessionData {
   onboarded: boolean;
   awaitingPhysiquePhotos: boolean;
   physiquePhotosReceived: string[];
+  editingMealId: number | null;
 }
 
 export type BotContext = Context &
@@ -15,4 +16,5 @@ export const initialSessionData = (): SessionData => ({
   onboarded: false,
   awaitingPhysiquePhotos: false,
   physiquePhotosReceived: [],
+  editingMealId: null,
 });

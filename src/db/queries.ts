@@ -115,7 +115,7 @@ export interface Meal {
   food_memory_id: number | null;
 }
 
-export function logMeal(meal: Omit<Meal, "id">): void {
+export function logMeal(meal: Omit<Meal, "id">): number {
   run(
     `INSERT INTO meals (logged_at, date, description, calories, protein, fat, carbs, photo_path, source, food_memory_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -132,6 +132,8 @@ export function logMeal(meal: Omit<Meal, "id">): void {
       meal.food_memory_id,
     ],
   );
+  const row = getOne<{ id: number }>("SELECT last_insert_rowid() as id");
+  return row?.id ?? 0;
 }
 
 export function getMealsForDate(date: string): Meal[] {
@@ -168,6 +170,49 @@ export function getDailyTotals(date: string) {
   );
 }
 
+export function getMealById(mealId: number): Meal | undefined {
+  return getOne<Meal>("SELECT * FROM meals WHERE id = ?", [mealId]);
+}
+
+export function updateMeal(
+  mealId: number,
+  data: {
+    description?: string;
+    calories?: number;
+    protein?: number;
+    fat?: number;
+    carbs?: number;
+  },
+): void {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+
+  if (data.description !== undefined) {
+    fields.push("description = ?");
+    values.push(data.description);
+  }
+  if (data.calories !== undefined) {
+    fields.push("calories = ?");
+    values.push(data.calories);
+  }
+  if (data.protein !== undefined) {
+    fields.push("protein = ?");
+    values.push(data.protein);
+  }
+  if (data.fat !== undefined) {
+    fields.push("fat = ?");
+    values.push(data.fat);
+  }
+  if (data.carbs !== undefined) {
+    fields.push("carbs = ?");
+    values.push(data.carbs);
+  }
+
+  if (fields.length === 0) return;
+  values.push(mealId);
+  run(`UPDATE meals SET ${fields.join(", ")} WHERE id = ?`, values);
+}
+
 export function updateMealCalories(
   mealId: number,
   calories: number,
@@ -179,6 +224,13 @@ export function updateMealCalories(
     `UPDATE meals SET calories = ?, protein = COALESCE(?, protein), fat = COALESCE(?, fat), carbs = COALESCE(?, carbs) WHERE id = ?`,
     [calories, protein ?? null, fat ?? null, carbs ?? null, mealId],
   );
+}
+
+export function deleteMeal(mealId: number): boolean {
+  const meal = getMealById(mealId);
+  if (!meal) return false;
+  run("DELETE FROM meals WHERE id = ?", [mealId]);
+  return true;
 }
 
 export function getLastMealByDescription(
